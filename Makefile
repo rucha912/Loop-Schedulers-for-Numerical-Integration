@@ -1,6 +1,6 @@
 CFLAGS=-O3 -std=c11
-CXXFLAGS=-O3 -std=c++11 -g
-LDFLAGS=-lpthread
+CXXFLAGS=-O3 -std=c++11 -g -w
+LDFLAGS=-pthread
 ARCHIVES=libfunctions.a
 LD=g++
 
