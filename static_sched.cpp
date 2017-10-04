@@ -101,11 +101,13 @@ int main (int argc, char* argv[]) {
     nbthreads = atoi(argv[6]);
     sync = argv[7];
 
-    pthread_t threads[nbthreads];
+    pthread_t* threads;
 
-    struct arguments arg[nbthreads];
+    struct arguments* arg;
 
-    float results[nbthreads] = {0};
+    threads = (pthread_t *)malloc(nbthreads * sizeof(pthread_t));
+    arg = (struct arguments*)malloc(nbthreads * sizeof(struct arguments));
+    
     pthread_mutex_init(&global_result_lock, NULL);
    
     auto clock_start = std::chrono::system_clock::now();

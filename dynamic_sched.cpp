@@ -34,15 +34,23 @@ float result = 0, x_val = 0;
 pthread_mutex_t loop_locks, global_result_lock, iteration_lock;
 
 int get_end(int start)
-{
-		if(start+granularity > n)
-			return n-1;
-		return (start+granularity)-1;
+{	
+	pthread_mutex_lock(&loop_locks);
+	endloop = (start + granularity) - 1;
+	pthread_mutex_unlock(&loop_locks);
+	if( endloop == n-1)
+		work_done = 1;
+	return endloop;
 }
 
-int get_start();
+int get_start()
 {
-	return startloop;
+	int temp;
+	temp = startloop;
+	pthread_mutex_lock(&loop_locks);
+	startloop = startloop + granularity;
+	pthread_mutex_unlock(&loop_locks);
+	return temp;
 }
     
 void* integrate_iteration_level(void *unused)
@@ -52,11 +60,10 @@ void* integrate_iteration_level(void *unused)
 	pthread_t thread_id = pthread_self();
 	while(work_done != 1)
 	{
-		pthread_mutex_lock(&loop_locks);
-		loop_end = get_end(startloop);
-		pthread_mutex_unlock(&loop_locks);
-		std::cout<<"Thread ID:"<<thread_id<<"Start:"<<startloop<<"End:"<<endloop<<std::endl;
-		for(int i = startloop; i < loop_end; i++)
+		loop_start = get_start();
+		loop_end = get_end(loop_start);
+		std::cout<<"Thread ID:"<<thread_id<<"Start:"<<loop_start<<"End:"<<loop_end<<std::endl;
+		for(int i = loop_start; i < loop_end; i++)
     	{	
     		pthread_mutex_lock(&iteration_lock);
 			x_int = (a + (i + 0.5) * ((b - a) / (float)n));
@@ -75,15 +82,18 @@ void* integrate_iteration_level(void *unused)
       		}
       		pthread_mutex_unlock(&iteration_lock);	
 		}
+	
 		if(endloop >= n)
 		{
+			pthread_mutex_lock(&loop_locks);
 			work_done = 1;
+			pthread_mutex_unlock(&loop_locks);
 			pthread_exit(NULL);
 		}
 		else
 		{
 			pthread_mutex_lock(&loop_locks);
-			startloop = endloop + 1;
+			endloop = loop_end;
 			pthread_mutex_unlock(&loop_locks);
 		}
 	}
