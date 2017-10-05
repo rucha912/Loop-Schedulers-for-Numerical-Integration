@@ -19,7 +19,7 @@ float f4(float x, int intensity);
 }
 #endif
 
-float global_result = 0  ;
+float global_result = 0, global_x_val = 0, global_x_int  ;
 pthread_mutex_t global_result_lock;
 
 struct arguments
@@ -29,6 +29,8 @@ struct arguments
     float result, x_val=0, x_int;
     int intensity, func;
 };
+
+//This function has the code for thread level mutual exclusion. Every thread has their own instance of result variable and it is aggregated later.
 
 void* integrate_thread_level(void * argument)
 {
@@ -55,6 +57,7 @@ void* integrate_thread_level(void * argument)
     pthread_exit(NULL);
 }
 
+//This function has the code for iteration level mutual exclusion. Every thread manipulates the global variable in the inner most loop through access in the critical section.
 
 void* integrate_iteration_level(void * argument)
 {
@@ -62,26 +65,25 @@ void* integrate_iteration_level(void * argument)
   
     for(int i = arg->start; i < arg->end; i++)
     {
-		arg->x_int = (arg->a + (i + 0.5) * ((arg->b - arg->a) / (float)arg->n));
-		arg->x_val = arg->x_val + arg->x_int;
+    	pthread_mutex_lock(&global_result_lock);
+		global_x_int = (arg->a + (i + 0.5) * ((arg->b - arg->a) / (float)arg->n));
+		global_x_val = global_x_val + global_x_int;
 		switch(arg->func)
     	{
 	 
-    		case 1: arg->result =  f1(arg->x_val, arg->intensity) * ((arg->b - arg->a)/arg->n);
+    		case 1: global_result =  f1(global_x_val, arg->intensity) * ((arg->b - arg->a)/arg->n);
 	
 			break;
-          	case 2: arg->result = f2(arg->x_val, arg->intensity) * ((arg->b - arg->a)/arg->n);
+          	case 2: global_result = f2(global_x_val, arg->intensity) * ((arg->b - arg->a)/arg->n);
 			break;
-          	case 3: arg->result = f3(arg->x_val, arg->intensity) * ((arg->b - arg->a)/arg->n);
+          	case 3: global_result = f3(global_x_val, arg->intensity) * ((arg->b - arg->a)/arg->n);
 			break;
-      	  	case 4: arg->result = f4(arg->x_val, arg->intensity) * ((arg->b - arg->a)/arg->n);
+      	  	case 4: global_result = f4(global_x_val, arg->intensity) * ((arg->b - arg->a)/arg->n);
 			break;
         	default: std::cout<<"\nWrong function id"<<std::endl;
       	}
+      	pthread_mutex_unlock(&global_result_lock);
       }
-      pthread_mutex_lock(&global_result_lock);
-      global_result = global_result + arg->result;
-      pthread_mutex_unlock(&global_result_lock);
       pthread_exit(NULL);
 }
   

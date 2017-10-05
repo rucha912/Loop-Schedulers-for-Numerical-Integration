@@ -1,9 +1,10 @@
-#include <iostream>
+#include<iostream>
 #include<string.h>
 #include<pthread.h>
 #include<stdlib.h>
 #include<math.h>
 #include<chrono>
+#include<stdio.h>
 
 
 #ifdef __cplusplus
@@ -21,7 +22,6 @@ float f4(float x, int intensity);
 
 
 float global_result = 0, x_int;
-float *thread_ans;
 clock_t start, end;
 float a, b;
 unsigned long n;
@@ -38,7 +38,7 @@ int get_end(int start)
 	pthread_mutex_lock(&loop_locks);
 	endloop = (start + granularity) - 1;
 	pthread_mutex_unlock(&loop_locks);
-	if( endloop == n-1)
+	if( endloop == n - 1)
 		work_done = 1;
 	return endloop;
 }
@@ -62,8 +62,8 @@ void* integrate_iteration_level(void *unused)
 	{
 		loop_start = get_start();
 		loop_end = get_end(loop_start);
-		std::cout<<"Thread ID:"<<thread_id<<"Start:"<<loop_start<<"End:"<<loop_end<<std::endl;
-		for(int i = loop_start; i < loop_end; i++)
+		std::cout<<"Start:"<<loop_start<<"End:"<<loop_end<<std::endl;
+		for(int i = loop_start; i <= loop_end; i++)
     	{	
     		pthread_mutex_lock(&iteration_lock);
 			x_int = (a + (i + 0.5) * ((b - a) / (float)n));
@@ -82,34 +82,19 @@ void* integrate_iteration_level(void *unused)
       		}
       		pthread_mutex_unlock(&iteration_lock);	
 		}
-	
-		if(endloop >= n)
-		{
-			pthread_mutex_lock(&loop_locks);
-			work_done = 1;
-			pthread_mutex_unlock(&loop_locks);
-			pthread_exit(NULL);
-		}
-		else
-		{
-			pthread_mutex_lock(&loop_locks);
-			endloop = loop_end;
-			pthread_mutex_unlock(&loop_locks);
-		}
 	}
 }
 
 void* integrate_chunk_level(void *unused)
 {
 	float chunk_result = 0;
+	int loop_end, loop_start;
 	while(work_done != 1)
 	{
-		pthread_mutex_lock(&loop_locks);
-		endloop = get_end(startloop);
-		pthread_mutex_unlock(&loop_locks);
-		
-		std::cout<<"Start:"<<startloop<<"End:"<<endloop<<std::endl;
-		for(int i = startloop; i < endloop; i++)
+		loop_start = get_start();
+		loop_end = get_end(loop_start);
+		std::cout<<"Start:"<<loop_start<<"End:"<<loop_end<<std::endl;
+		for(int i = loop_start; i < loop_end; i++)
     	{	
 			x_int = (a + (i + 0.5) * ((b - a) / (float)n));
 			x_val = x_val + x_int;
@@ -130,63 +115,43 @@ void* integrate_chunk_level(void *unused)
       		pthread_mutex_unlock(&global_result_lock);	
 		}
 		
-		if(endloop == n-1)
-		{
-			work_done = 1;
-			pthread_exit(NULL);
-		}
-		else
-		{
-			pthread_mutex_lock(&loop_locks);
-			startloop = endloop;
-			pthread_mutex_unlock(&loop_locks);
-		}
 	}
 }
 
 void* integrate_thread_level(void* unused)
 {
-	uintptr_t id = (uintptr_t)unused;
+	float thread;
+	int loop_end, loop_start;
 	while(work_done != 1)
 	{
-		pthread_mutex_lock(&loop_locks);
-		endloop = get_end(startloop);
-		pthread_mutex_unlock(&loop_locks);
+		loop_start = get_start();
+		loop_end = get_end(loop_start);
+		std::cout<<"Start:"<<loop_start<<"End:"<<loop_end<<std::endl;
 	
-		for(int i = startloop; i < endloop; i++)
+		for(int i = loop_start; i < loop_end; i++)
     	{	
 			x_int = (a + (i + 0.5) * ((b - a) / (float)n));
 			x_val = x_val + x_int;
 			switch(func)
         	{
-        		std::cout<<"Index:"<<id<<std::endl;
-      			case 1: thread_ans[id] += f1(x_val, intensity) * ((b - a)/n);
+      			case 1: thread += f1(x_val, intensity) * ((b - a)/n);
 						break;
-        		case 2: thread_ans[id] += f2(x_val, intensity) * ((b - a)/n);
+        		case 2: thread += f2(x_val, intensity) * ((b - a)/n);
 						break;
-        	  	case 3: thread_ans[id] = f3(x_val, intensity) * ((b - a)/n);
+        	  	case 3: thread += f3(x_val, intensity) * ((b - a)/n);
 						break;
-      		  	case 4: thread_ans[id] = f4(x_val, intensity) * ((b - a)/n);
+      		  	case 4: thread += f4(x_val, intensity) * ((b - a)/n);
 						break;
         	  	default: std::cout<<"\nWrong function id"<<std::endl;
       		}
 		}
-		if(endloop == n)
-		{
-			work_done = 1;
-			pthread_exit(NULL);
-		}
-		else
-		{
-			pthread_mutex_lock(&loop_locks);
-			startloop = endloop;
-			pthread_mutex_unlock(&loop_locks);
-		}
 	}
+	pthread_exit((void *)&thread);
 }
 
   
-int main (int argc, char* argv[]) {
+int main (int argc, char* argv[])
+{
 
 	func = atoi(argv[1]);
     a = atof(argv[2]);
@@ -196,7 +161,11 @@ int main (int argc, char* argv[]) {
     nbthreads = atoi(argv[6]);
     sync = argv[7];
 	granularity = atoi(argv[8]);
-    pthread_t threads[nbthreads];
+    pthread_t *threads;
+	float *thread_ans;
+	
+    threads = (pthread_t *)malloc(nbthreads * sizeof(pthread_t));
+    thread_ans = (float *)malloc(nbthreads * sizeof(float));
     
     auto clock_start = std::chrono::system_clock::now();
     
@@ -222,16 +191,22 @@ int main (int argc, char* argv[]) {
  			pthread_create(&threads[i], NULL, integrate_chunk_level, NULL);
  		}
  	}
-	for ( int i = 0; i < nbthreads; i++)
-    {
-        pthread_join(threads[i], NULL);
-    }
-    
-    if( strcmp(sync, "thread") == 0)
-    {
- 		for(int i = 0; i < nbthreads; i++)
+ 	if( strcmp(sync, "thread") == 0)
+ 	{
+		for ( int i = 0; i < nbthreads; i++)
+    	{
+        	pthread_join(threads[i], (void **)&thread_ans[i]);
+    	}
+    	for(int i = 0; i < nbthreads; i++)
  		{
  			global_result += thread_ans[i];
+ 		}
+    }
+    else
+    {
+    	for(int i = 0; i < nbthreads; i++)
+ 		{
+ 			pthread_join(threads[i], NULL);
  		}
  	}
  	
