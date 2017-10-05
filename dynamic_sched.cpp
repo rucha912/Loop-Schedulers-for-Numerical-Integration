@@ -105,7 +105,9 @@ void* integrate_chunk_level(void *unused)
 		for(int i = loop_start; i <= loop_end; i++)
     	{	
 			x_int = (a + (i + 0.5) * ((b - a) / (float)n));
+			pthread_mutex_lock(&global_result_lock);
 			x_val = x_val + x_int;
+			pthread_mutex_unlock(&global_result_lock);
 			switch(func)
         	{
       			case 1: chunk_result = f1(x_val, intensity) * ((b - a)/n);
