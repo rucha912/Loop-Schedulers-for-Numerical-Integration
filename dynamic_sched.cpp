@@ -118,12 +118,11 @@ void* integrate_chunk_level(void *unused)
 						break;
         	  	default: std::cout<<"\nWrong function id"<<std::endl;
       		}
-		}
-		pthread_mutex_lock(&global_result_lock);
-      	global_result = chunk_result;
-      	pthread_mutex_unlock(&global_result_lock);	
-		
+		}	
 	}
+	pthread_mutex_lock(&global_result_lock);
+    global_result = global_result + chunk_result;
+    pthread_mutex_unlock(&global_result_lock);
 }
 
 //This function does integration using thread level mutual exclusion where the every thread computes the result in the local variable and aggregates the result in the end.
