@@ -36,7 +36,7 @@ pthread_mutex_t loop_locks, global_result_lock, iteration_lock;
 struct thread_arg
 {
 	float thread_result, x_val=0, x_int;
-	unsigned long start, end;
+	unsigned long start = 0, end=0;
 };
 
 int get_end(int start)
@@ -129,7 +129,6 @@ void* integrate_chunk_level(void *unused)
 
 void* integrate_thread_level(void* thread_args)
 {
-	float thread;
 	struct thread_arg* arg = (struct thread_arg *)thread_args;
 	while(work_done != 1)
 	{
