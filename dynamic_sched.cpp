@@ -96,7 +96,7 @@ void* integrate_iteration_level(void *unused)
 
 void* integrate_chunk_level(void *unused)
 {
-	float chunk_result = 0;
+	float chunk_result = 0, chunk_int, chunk_val=0;
 	unsigned long loop_end, loop_start;
 	while(work_done != 1)
 	{
@@ -104,19 +104,17 @@ void* integrate_chunk_level(void *unused)
 		loop_end = get_end(loop_start);
 		for(int i = loop_start; i <= loop_end; i++)
     	{	
-			x_int = (a + (i + 0.5) * ((b - a) / (float)n));
-			pthread_mutex_lock(&global_result_lock);
-			x_val = x_val + x_int;
-			pthread_mutex_unlock(&global_result_lock);
+			chunk_int = (a + (i + 0.5) * ((b - a) / (float)n));
+			chunk_val = chunk_val + chunk_int;
 			switch(func)
         	{
-      			case 1: chunk_result = f1(x_val, intensity) * ((b - a)/n);
+      			case 1: chunk_result = f1(chunk_val, intensity) * ((b - a)/n);
 						break;
-        		case 2: chunk_result = f2(x_val, intensity) * ((b - a)/n);
+        		case 2: chunk_result = f2(chunk_val, intensity) * ((b - a)/n);
 						break;
-        	  	case 3: chunk_result = f3(x_val, intensity) * ((b - a)/n);
+        	  	case 3: chunk_result = f3(chunk_val, intensity) * ((b - a)/n);
 						break;
-      		  	case 4: chunk_result = f4(x_val, intensity) * ((b - a)/n);
+      		  	case 4: chunk_result = f4(chunk_val, intensity) * ((b - a)/n);
 						break;
         	  	default: std::cout<<"\nWrong function id"<<std::endl;
       		}
