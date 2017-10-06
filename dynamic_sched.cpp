@@ -42,20 +42,25 @@ struct arguments
 
 int get_end(int start)
 {	
-	pthread_mutex_lock(&loop_locks);
-	endloop = (start + granularity) - 1;
-	pthread_mutex_unlock(&loop_locks);
-	if( endloop == n - 1)
-		work_done = 1;
+	//pthread_mutex_lock(&loop_locks);
+	int endloop = (start + granularity);
+	if( endloop >= n - 1)
+		//pthread_mutex_lock(&global_result_lock);
+		//work_done = 1;
+		return n;
+		//pthread_mutex_unlock(&global_result_lock);
+	//pthread_mutex_unlock(&loop_locks);
 	return endloop;
 }
 
 int get_start()
 {
 	int temp;
-	temp = startloop;
 	pthread_mutex_lock(&loop_locks);
+	temp = startloop;
 	startloop = startloop + granularity;
+	if (startloop + granularity > n)
+		work_done = 1;
 	pthread_mutex_unlock(&loop_locks);
 	return temp;
 }
@@ -70,7 +75,7 @@ void* integrate_iteration_level(void * argument)
     {
   		arg->start = get_start();
     	arg->end = get_end(arg->start);
-    	for(int i = arg->start; i <= arg->end; i++)
+    	for(int i = arg->start; i < arg->end ; i++)
     	{
     		pthread_mutex_lock(&global_result_lock);
 			global_x_int = (arg->a + (i + 0.5) * ((arg->b - arg->a) / (float)arg->n));
@@ -88,7 +93,10 @@ void* integrate_iteration_level(void * argument)
 				break;
     	    	default: std::cout<<"\nWrong function id"<<std::endl;
     	  	}
+    	  	if (i == arg->end-1 && endloop>=n-1)
+    	  		work_done = 1;
     	  	pthread_mutex_unlock(&global_result_lock);
+    	  	
     	  }
     }
     	  pthread_exit(NULL);
@@ -104,7 +112,7 @@ void* integrate_chunk_level(void *unused)
 	{
 		loop_start = get_start();
 		loop_end = get_end(loop_start);
-		for(int i = loop_start; i <= loop_end; i++)
+		for(int i = loop_start; i < loop_end; i++)
     	{	
 			chunk_int = (a + (i + 0.5) * ((b - a) / (float)n));
 			chunk_val = chunk_val + chunk_int;
@@ -120,7 +128,12 @@ void* integrate_chunk_level(void *unused)
 						break;
         	  	default: std::cout<<"\nWrong function id"<<std::endl;
       		}
+    	  	
 		}	
+		pthread_mutex_lock(&global_result_lock);
+		if ( endloop>=n-1)
+    	  		work_done = 1;
+    	pthread_mutex_unlock(&global_result_lock);
 	}
 	pthread_mutex_lock(&global_result_lock);
     global_result = global_result + chunk_result;
@@ -137,9 +150,11 @@ void* integrate_thread_level(void * argument)
     {
     
     	arg->start = get_start();
+	if (arg->start >= n)
+		break;
     	arg->end = get_end(arg->start);
    
-    	for(int i = arg->start; i <= arg->end; i++)
+    	for(int i = arg->start; i < arg->end; i++)
     	{
     	  
     		arg->x_int = (arg->a + (i + 0.5) * ((arg->b - arg->a) / (float)arg->n));
@@ -157,6 +172,10 @@ void* integrate_thread_level(void * argument)
             	default: std::cout<<"\nWrong function id"<<std::endl;
       	 	}
     	}
+    	pthread_mutex_lock(&global_result_lock);
+		if (endloop>=n-1)
+    	  		work_done = 1;
+    	pthread_mutex_unlock(&global_result_lock);
     }
     pthread_exit(NULL);
 }
@@ -199,7 +218,9 @@ int main (int argc, char* argv[])
     	}
     	for( int k = 0; k < nbthreads; k++)
     	{
+	    pthread_mutex_lock(&global_result_lock);
     	    global_result += arg[k].result;
+	    pthread_mutex_unlock(&global_result_lock);
     	}
     }
     else if(strcmp(sync, "iteration") == 0)
