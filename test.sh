@@ -175,12 +175,13 @@ else
     exit 1
 fi
 
-TEST20=$(./dynamic_sched 1 0 10 10000 1 16 chunk 7 2> /dev/null)
+
+TEST20=$(./dynamic_sched 1 0 10 10000 1 16 chunk 100 2> /dev/null)
 if ./approx $TEST20 50;
 then
     echo oktest20
 else
-    echo notok "./dynamic_sched 1 0 10 10000 1 16 chunk 7" should give roughly "50"
+    echo notok "./dynamic_sched 1 0 10 10000 1 16 chunk " should give roughly "50"
     exit 1
 fi
 
